@@ -1,5 +1,7 @@
 # rdbiosonics
 
+[![Documentation Status](https://readthedocs.org/projects/rdbiosonics/badge/?version=latest)](https://rdbiosonics.readthedocs.io/en/latest/?badge=latest)
+
 Read **Biosonics DTX `.DT4`** echosounder files into
 [xarray](https://docs.xarray.dev).
 
@@ -49,9 +51,9 @@ pixi run echogram
 
 ## Documentation
 
-Full docs (quickstart, echogram example, API reference) are in `docs/` and
-build with `pixi run docs`. They are also set up for
-[Read the Docs](https://readthedocs.org) via `.readthedocs.yaml`.
+Full documentation — installation, quickstart, the echogram example, and the
+API reference — is at <https://rdbiosonics.readthedocs.io>. Build it locally
+with `pixi run docs`.
 
 ## License
 

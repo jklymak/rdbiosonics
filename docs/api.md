@@ -4,6 +4,10 @@
 .. autofunction:: rdbiosonics.rddtx
 ```
 
+```{eval-rst}
+.. autofunction:: rdbiosonics.dt4_to_netcdf
+```
+
 ## Differences from `rddtx.m`
 
 Record decoding follows the MATLAB original, with two deliberate bug fixes:

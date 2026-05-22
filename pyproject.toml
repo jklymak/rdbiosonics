@@ -7,6 +7,12 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = ["numpy", "xarray>=2024.10"]
 
+[project.optional-dependencies]
+netcdf = ["netcdf4"]
+
+[project.scripts]
+rdbiosonics-convert = "rdbiosonics.convert:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -22,6 +28,7 @@ platforms = ["osx-arm64", "linux-64"]
 python = ">=3.11"
 numpy = "*"
 xarray = ">=2024.10"
+netcdf4 = "*"
 pytest = "*"
 matplotlib = "*"
 sphinx = ">=7"

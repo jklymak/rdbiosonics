@@ -22,18 +22,12 @@ SONAR-netCDF4 layout.
 
 ## Installation
 
-Development uses [pixi](https://pixi.sh):
-
 ```bash
-pixi install        # create the environment
-pixi run test       # run the test suite
+pixi install      # full development environment, or:
+pip install .     # into an existing Python environment
 ```
 
-To use the package elsewhere, install it with pip:
-
-```bash
-pip install .
-```
+See {doc}`installation` for the complete pixi and pip guide.
 
 ## At a glance
 
@@ -48,7 +42,9 @@ echogram = dt["Beam"]["backscatter"]   # (ping_time, range_sample)
 :maxdepth: 2
 :hidden:
 
+installation
 quickstart
 echogram
+conversion
 api
 ```
