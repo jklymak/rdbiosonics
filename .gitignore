@@ -1,0 +1,19 @@
+# Pixi environment
+.pixi/
+
+# Build artifacts
+docs/_build/
+dist/
+build/
+*.egg-info/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Example output (regenerate with `pixi run echogram`)
+examples/echogram.png
+
+# Large raw data: too big to commit (see docs)
+example_data/*.dt4

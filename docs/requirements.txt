@@ -1,0 +1,5 @@
+# Documentation build dependencies (used by Read the Docs).
+# The package itself is installed separately via .readthedocs.yaml.
+sphinx>=7
+myst-parser
+furo

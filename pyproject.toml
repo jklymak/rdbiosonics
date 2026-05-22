@@ -1,0 +1,36 @@
+[project]
+name = "rdbiosonics"
+version = "0.1.0"
+description = "Reader for Biosonics DTX .DT4 echosounder files"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["numpy", "xarray>=2024.10"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rdbiosonics"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.dependencies]
+python = ">=3.11"
+numpy = "*"
+xarray = ">=2024.10"
+pytest = "*"
+matplotlib = "*"
+sphinx = ">=7"
+myst-parser = "*"
+furo = "*"
+
+[tool.pixi.pypi-dependencies]
+rdbiosonics = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+test = "pytest -q"
+echogram = "python examples/plot_echogram.py"
+docs = "sphinx-build -b html docs docs/_build/html"
