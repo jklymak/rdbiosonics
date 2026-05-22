@@ -205,7 +205,7 @@ def _parse_nmea(s, cur_chron, prev_mtimes):
 # --------------------------------------------------------------------------
 # public reader
 # --------------------------------------------------------------------------
-def rddtx(files, numdec=3):
+def rddtx(files, numdec=3, flat=False):
     """Read Biosonics DTX ``.DT4`` files into an :class:`xarray.DataTree`.
 
     Parameters
@@ -218,6 +218,11 @@ def rddtx(files, numdec=3):
         Decimation factor. Pings are grouped in blocks of ``numdec`` and
         reduced by an in-time median, which is effective at suppressing
         interference from other sounders. Use ``numdec=1`` for no decimation.
+    flat : bool, default False
+        If *True*, merge ``latitude``, ``longitude``, and ``nmea_time`` from
+        the Platform group into the Beam dataset as extra variables and omit
+        the ``/Platform`` group.  This produces a simpler, group-free netCDF
+        when both groups share the same ``ping_time`` dimension.
 
     Returns
     -------
@@ -295,11 +300,12 @@ def rddtx(files, numdec=3):
 
     return _build_tree(files, numdec, env, snd, pulse,
                        cols, imtime, pingnum,
-                       pos_ptime, pos_mtime, pos_lat, pos_lon)
+                       pos_ptime, pos_mtime, pos_lat, pos_lon,
+                       flat=flat)
 
 
 def _build_tree(files, numdec, env, snd, pulse, cols, imtime, pingnum,
-                pos_ptime, pos_mtime, pos_lat, pos_lon):
+                pos_ptime, pos_mtime, pos_lat, pos_lon, *, flat=False):
     spp = snd["sampperping"]
     npings = len(cols)
     backscatter = (np.stack(cols) if npings
@@ -328,81 +334,95 @@ def _build_tree(files, numdec, env, snd, pulse, cols, imtime, pingnum,
 
     ping_time = _sec_to_dt64(imtime)
 
-    beam = xr.Dataset(
-        data_vars={
-            "backscatter": (
-                ("ping_time", "range_sample"), backscatter,
-                {"long_name": "log10 of raw echo counts",
-                 "units": "log10(count)",
-                 "comment": "log10(max(count, 1)); see rddtx.m"}),
-            "ping_number": (
-                "ping_time", pingnum,
-                {"long_name": "sounder ping counter"}),
-        },
-        coords={
-            "ping_time": ("ping_time", ping_time,
-                          {"long_name": "internal sounder clock time"}),
-            "range_sample": ("range_sample", np.arange(spp)),
-            "echo_range": ("range_sample", echo_range,
-                           {"long_name": "range to sample centre",
-                            "units": "m"}),
-        },
-    )
+    beam_vars = {
+        "backscatter": (
+            ("ping_time", "range_sample"), backscatter,
+            {"long_name": "log10 of raw echo counts",
+             "units": "log10(count)",
+             "comment": "log10(max(count, 1)); see rddtx.m"}),
+        "ping_number": (
+            "ping_time", pingnum,
+            {"long_name": "sounder ping counter"}),
+    }
 
-    platform = xr.Dataset(
-        data_vars={
-            "latitude": ("ping_time", lat,
-                         {"long_name": "latitude", "units": "degrees_north"}),
-            "longitude": ("ping_time", lon,
-                          {"long_name": "longitude", "units": "degrees_east"}),
-            "nmea_time": ("ping_time", _sec_to_dt64(nmea_time),
-                          {"long_name": "time from NMEA strings, "
-                                        "interpolated to ping times"}),
-        },
-        coords={"ping_time": ("ping_time", ping_time)},
-    )
+    platform_vars = {
+        "latitude": ("ping_time", lat,
+                     {"long_name": "latitude", "units": "degrees_north"}),
+        "longitude": ("ping_time", lon,
+                      {"long_name": "longitude", "units": "degrees_east"}),
+        "nmea_time": ("ping_time", _sec_to_dt64(nmea_time),
+                      {"long_name": "time from NMEA strings, "
+                                    "interpolated to ping times"}),
+    }
 
-    environment = xr.Dataset(
-        data_vars={
-            "sound_speed": ((), env["sv"], {"units": "m/s"}),
-            "sound_absorption": ((), env["absorb"], {"units": "dB/m"}),
-            "temperature": ((), env["temperature"], {"units": "degC"}),
-            "salinity": ((), env["salinity"], {"units": "1e-3"}),
-            "power": ((), env["power"]),
-            "nsdr": ((), env["nsdr"]),
-        },
-    )
+    beam_coords = {
+        "ping_time": ("ping_time", ping_time,
+                      {"long_name": "internal sounder clock time"}),
+        "range_sample": ("range_sample", np.arange(spp)),
+        "echo_range": ("range_sample", echo_range,
+                       {"long_name": "range to sample centre",
+                        "units": "m"}),
+    }
 
-    vendor = xr.Dataset(
-        data_vars={
-            "frequency": ((), snd["freq"], {"units": "Hz"}),
-            "transducer": ((), snd["transducer"]),
-            "sample_interval": ((), snd["sampperiod"], {"units": "us"}),
-            "sample_blanking": ((), snd["blank"], {"units": "sample"}),
-            "pulse_length": ((), snd["pulselen"], {"units": "ms"}),
-            "ping_period": ((), snd["pingperiod"], {"units": "s"}),
-            "threshold": ((), snd["threshold"], {"units": "dB"}),
-            "ccor": ((), snd["ccor"]),
-            "max_data": ((), snd["maxdata"]),
-        },
-        attrs={
-            "serial_number": snd["serialnum"],
-            "calibration_tech": snd["cal_tech"],
-            "calibration_date": str(snd["calibration"]),
-            "sounder_address": snd["address"],
-            "pings_expected": int(snd["npings"]),
-            "samples_per_ping": spp,
-            "pulse_type": pulse["type"] if pulse else "unknown",
-        },
-    )
+    env_vars = {
+        "sound_speed": ((), env["sv"], {"units": "m/s"}),
+        "sound_absorption": ((), env["absorb"], {"units": "dB/m"}),
+        "temperature": ((), env["temperature"], {"units": "degC"}),
+        "salinity": ((), env["salinity"], {"units": "1e-3"}),
+        "power": ((), env["power"]),
+        "nsdr": ((), env["nsdr"]),
+    }
 
-    root = xr.Dataset(attrs={
+    vendor_vars = {
+        "frequency": ((), snd["freq"], {"units": "Hz"}),
+        "transducer": ((), snd["transducer"]),
+        "sample_interval": ((), snd["sampperiod"], {"units": "us"}),
+        "sample_blanking": ((), snd["blank"], {"units": "sample"}),
+        "pulse_length": ((), snd["pulselen"], {"units": "ms"}),
+        "ping_period": ((), snd["pingperiod"], {"units": "s"}),
+        "threshold": ((), snd["threshold"], {"units": "dB"}),
+        "ccor": ((), snd["ccor"]),
+        "max_data": ((), snd["maxdata"]),
+    }
+
+    vendor_attrs = {
+        "serial_number": snd["serialnum"],
+        "calibration_tech": snd["cal_tech"],
+        "calibration_date": str(snd["calibration"]),
+        "sounder_address": snd["address"],
+        "pings_expected": int(snd["npings"]),
+        "samples_per_ping": spp,
+        "pulse_type": pulse["type"] if pulse else "unknown",
+    }
+
+    root_attrs = {
         "title": "Biosonics DTX DT4 echosounder data",
         "source_files": [Path(f).name for f in files],
         "decimation": numdec,
         "n_pings": npings,
         "converted_by": "rdbiosonics.rddtx (port of rddtx.m)",
-    })
+    }
+
+    if flat:
+        all_vars = {}
+        all_vars.update(beam_vars)
+        all_vars.update(platform_vars)
+        all_vars.update(env_vars)
+        all_vars.update(vendor_vars)
+        all_attrs = {}
+        all_attrs.update(root_attrs)
+        all_attrs.update(vendor_attrs)
+        return xr.Dataset(data_vars=all_vars, coords=beam_coords,
+                          attrs=all_attrs)
+
+    beam = xr.Dataset(data_vars=beam_vars, coords=beam_coords)
+    platform = xr.Dataset(
+        data_vars=platform_vars,
+        coords={"ping_time": ("ping_time", ping_time)},
+    )
+    environment = xr.Dataset(data_vars=env_vars)
+    vendor = xr.Dataset(data_vars=vendor_vars, attrs=vendor_attrs)
+    root = xr.Dataset(attrs=root_attrs)
 
     return xr.DataTree.from_dict({
         "/": root,

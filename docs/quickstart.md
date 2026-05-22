@@ -56,10 +56,27 @@ speed_of_sound = float(dt["Environment"]["sound_speed"])
 serial = dt["Vendor_specific"].attrs["serial_number"]
 ```
 
+## Flat output
+
+Pass `flat=True` to get a single {py:class}`xarray.Dataset` with no groups —
+all variables and attributes are merged into one dataset:
+
+```python
+ds = rddtx("file.dt4", flat=True)
+
+ds["backscatter"]    # 2-D DataArray
+ds["latitude"]       # alongside the beam data
+ds["sound_speed"]    # scalar
+ds.attrs["serial_number"]
+```
+
+This is convenient when the grouped structure is not needed and you want a
+simple netCDF file that any tool can read without group-aware support.
+
 ## Two time bases
 
 The DT4 format carries two clocks, both exposed on the `ping_time`
-coordinate / `Platform` group:
+coordinate / `Platform` group (or directly on the flat dataset):
 
 `ping_time`
 : The internal sounder clock (millisecond resolution). Very regular from

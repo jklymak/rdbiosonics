@@ -68,7 +68,7 @@ def _backscatter_encoding(backscatter, dtype, complevel, ping_chunk):
 
 
 def dt4_to_netcdf(src, dst=None, *, numdec=3, dtype="float32",
-                  complevel=4, ping_chunk=512):
+                  complevel=4, ping_chunk=512, flat=False):
     """Convert DT4 file(s) to a single compressed, chunked netCDF file.
 
     Parameters
@@ -88,6 +88,11 @@ def dt4_to_netcdf(src, dst=None, *, numdec=3, dtype="float32",
         zlib compression level (1-9).
     ping_chunk : int, default 512
         Chunk size along ``ping_time``; the range axis is one chunk.
+    flat : bool, default False
+        If *True*, merge ``latitude``, ``longitude``, and ``nmea_time`` into
+        the Beam dataset instead of placing them in a separate ``/Platform``
+        group.  This produces a simpler netCDF when both groups share the
+        same ``ping_time`` dimension.
 
     Returns
     -------
@@ -105,14 +110,20 @@ def dt4_to_netcdf(src, dst=None, *, numdec=3, dtype="float32",
             "`pip install netcdf4` or `pip install 'rdbiosonics[netcdf]'`."
         )
 
-    dt = rddtx(src_list, numdec=numdec)
-    _sanitize_attrs(dt)
-
-    enc = _backscatter_encoding(
-        dt["Beam"]["backscatter"].values, dtype, complevel, ping_chunk)
+    result = rddtx(src_list, numdec=numdec, flat=flat)
 
     dst.parent.mkdir(parents=True, exist_ok=True)
-    dt.to_netcdf(dst, encoding={"/Beam": {"backscatter": enc}})
+
+    if flat:
+        enc = _backscatter_encoding(
+            result["backscatter"].values, dtype, complevel, ping_chunk)
+        result.to_netcdf(dst, encoding={"backscatter": enc})
+    else:
+        _sanitize_attrs(result)
+        enc = _backscatter_encoding(
+            result["Beam"]["backscatter"].values, dtype, complevel, ping_chunk)
+        result.to_netcdf(dst, encoding={"/Beam": {"backscatter": enc}})
+
     return dst
 
 
@@ -156,6 +167,11 @@ def main(argv=None):
         "--chain", action="store_true",
         help="chain all inputs into one netCDF (default: one per input)",
     )
+    parser.add_argument(
+        "--flat", action="store_true",
+        help="merge latitude, longitude, and nmea_time into the Beam group "
+             "instead of a separate Platform group",
+    )
     args = parser.parse_args(argv)
 
     files = _expand_inputs(args.inputs)
@@ -173,7 +189,8 @@ def main(argv=None):
     for src, dst in jobs:
         print(f"converting {len(src)} file(s) -> {dst}", flush=True)
         dt4_to_netcdf(src, dst, numdec=args.numdec, dtype=args.dtype,
-                      complevel=args.complevel, ping_chunk=args.ping_chunk)
+                      complevel=args.complevel, ping_chunk=args.ping_chunk,
+                      flat=args.flat)
         mb = dst.stat().st_size / 1e6
         total += mb
         print(f"  wrote {mb:.1f} MB")

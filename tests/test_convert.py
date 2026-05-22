@@ -64,6 +64,38 @@ def test_default_output_path(tmp_path):
     assert dst.exists()
 
 
+def test_flat_netcdf_has_no_groups(tmp_path):
+    dst = dt4_to_netcdf(SAMPLE, tmp_path / "flat.nc", flat=True)
+    ds = xr.open_dataset(dst)
+    try:
+        # All variables in one flat dataset
+        assert "backscatter" in ds
+        assert "latitude" in ds
+        assert "longitude" in ds
+        assert "nmea_time" in ds
+        assert "sound_speed" in ds
+        assert "frequency" in ds
+    finally:
+        ds.close()
+
+
+def test_flat_rddtx_returns_dataset():
+    flat = rddtx(SAMPLE, flat=True)
+    assert isinstance(flat, xr.Dataset)
+    grouped = rddtx(SAMPLE)
+    # Platform vars present
+    np.testing.assert_array_equal(
+        flat["latitude"].values,
+        grouped["Platform"]["latitude"].values)
+    np.testing.assert_array_equal(
+        flat["longitude"].values,
+        grouped["Platform"]["longitude"].values)
+    # Backscatter unchanged
+    np.testing.assert_array_equal(
+        flat["backscatter"].values,
+        grouped["Beam"]["backscatter"].values)
+
+
 def test_invalid_dtype_rejected(tmp_path):
     with pytest.raises(ValueError):
         dt4_to_netcdf(SAMPLE, tmp_path / "x.nc", dtype="float64")

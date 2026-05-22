@@ -8,7 +8,8 @@ beyond a quick look — and especially for large multi-day deployments —
 
 {py:func}`rdbiosonics.dt4_to_netcdf` reads DT4 file(s) and writes a
 **compressed, chunked** netCDF that round-trips the full {py:class}`~xarray.DataTree`
-(`Beam`, `Environment`, `Platform`, `Vendor_specific`).
+(`Beam`, `Environment`, `Platform`, `Vendor_specific`). Pass `flat=True` to
+merge everything into a single group-free netCDF instead.
 
 ```{note}
 Writing netCDF needs the `netcdf4` package: `pip install 'rdbiosonics[netcdf]'`
@@ -22,6 +23,7 @@ from rdbiosonics import dt4_to_netcdf
 
 dt4_to_netcdf("Bark2620260509_110000.dt4")              # -> ...110000.nc
 dt4_to_netcdf("in.dt4", "out.nc", dtype="int16")        # half the size
+dt4_to_netcdf("in.dt4", "flat.nc", flat=True)           # no groups
 ```
 
 Convert a whole deployment one file at a time, then open them lazily as a
@@ -38,6 +40,15 @@ beam = xr.open_mfdataset("nc/*.nc", group="Beam", combine="nested",
                          concat_dim="ping_time")
 ```
 
+With `flat=True` the files have no groups, so `open_mfdataset` works directly:
+
+```python
+for f in sorted(Path("raw").glob("*.dt4")):
+    dt4_to_netcdf(f, Path("nc") / f.with_suffix(".nc").name, flat=True)
+
+ds = xr.open_mfdataset("nc/*.nc", combine="nested", concat_dim="ping_time")
+```
+
 ## From the command line
 
 The package installs a `rdbiosonics-convert` tool:
@@ -51,6 +62,9 @@ rdbiosonics-convert raw/ -o nc/ --dtype int16
 
 # chain split files into a single netCDF
 rdbiosonics-convert part1.dt4 part2.dt4 --chain -o combined.nc
+
+# flat netCDF with no groups
+rdbiosonics-convert raw/*.dt4 --flat
 ```
 
 ## Storage options
@@ -76,8 +90,12 @@ the data is all zeros and compresses to almost nothing.
 ```python
 import xarray as xr
 
+# grouped netCDF
 dt = xr.open_datatree("out.nc")          # the full group tree
 beam = xr.open_dataset("out.nc", group="Beam")   # just one group
+
+# flat netCDF — plain open_dataset, no group argument needed
+ds = xr.open_dataset("flat.nc")
 ```
 
 Decompression and CF unpacking are automatic — there is never a manual decode
