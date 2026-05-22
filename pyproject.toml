@@ -2,6 +2,7 @@
 name = "rdbiosonics"
 version = "0.1.0"
 description = "Reader for Biosonics DTX .DT4 echosounder files"
+readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = ["numpy", "xarray>=2024.10"]
@@ -15,7 +16,7 @@ packages = ["src/rdbiosonics"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["osx-arm64"]
+platforms = ["osx-arm64", "linux-64"]
 
 [tool.pixi.dependencies]
 python = ">=3.11"
